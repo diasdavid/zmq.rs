@@ -11,11 +11,13 @@ use tcp_listener::TcpListener;
 
 use std::collections::HashMap;
 use std::sync::mpsc::Select;
-use std::io;
-use std::io::Listener;
-use std::io::net::ip::SocketAddr;
+use std::old_io;
+use std::old_io::Listener;
+use std::old_io::net::ip::SocketAddr;
 use std::sync::{Arc, RwLock};
 use std::sync::mpsc::{Receiver, Sender};
+
+use std::string::String;
 
 pub enum SocketMessage {
     Ping,
@@ -69,9 +71,9 @@ impl SocketBase {
 
         match protocol {
             "tcp" => {
-                match from_str::<SocketAddr>(address) {
+                match String::from_str::<SocketAddr>(address) {
                     Some(addr) => {
-                        let listener = io::TcpListener::bind(
+                        let listener = old_io::TcpListener::bind(
                             format!("{}:{}", addr.ip, addr.port).as_slice());
                         let acceptor = try!(listener.listen().map_err(ZmqError::from_io_error));
                         TcpListener::spawn_new(acceptor, self.tx.clone(), self.options.clone());
@@ -93,7 +95,7 @@ impl SocketBase {
         let (protocol, address) = try!(parse_uri(addr));
         match protocol {
             "tcp" => {
-                match from_str::<SocketAddr>(address) {
+                match String::from_str(address) {
                     Some(addr) => {
                         TcpConnecter::spawn_new(addr, self.tx.clone(), self.options.clone());
                         Ok(())
@@ -185,7 +187,7 @@ impl SocketBase {
 
     fn sync_until<F: FnOnce(&SocketBase)>(&mut self, func: F) {
         loop {
-            if !cond(self) {
+            if !assert!(self) {
                 debug!("Condition not met, wait... peers: {}", self.peers.len());
                 match self.rx.recv_opt() {
                     Ok(msg) => self.handle_msg(msg),

@@ -26,7 +26,7 @@ impl TcpListener {
             self.acceptor.set_timeout(Some(ACCEPT_TIMEOUT));
             match self.acceptor.accept() {
                 Ok(stream) => {
-                    if self.chan_to_socket.send_opt(Ok(SocketMessage::Ping)).is_err() {
+                    if self.chan_to_socket.send(Ok(SocketMessage::Ping)).is_err() {
                         return Ok(());
                     }
 
@@ -34,7 +34,7 @@ impl TcpListener {
                     StreamEngine::spawn_new(stream, options, self.chan_to_socket.clone(), None);
                 }
                 Err(e) =>
-                    try!(self.chan_to_socket.send_opt(Err(ZmqError::from_io_error(e)))),
+                    try!(self.chan_to_socket.send(Err(ZmqError::from_io_error(e)))),
             }
         }
     }

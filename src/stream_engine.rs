@@ -24,7 +24,7 @@ const REVISION_POS: uint = 10;
 
 fn stream_bytes_writer(chan: Receiver<Box<Vec<u8>>>, mut stream: TcpStream, _waiter: Sender<u8>) {
     loop {
-        match chan.recv_opt() {
+        match chan.recv() {
             Ok(buf) => match stream.write(buf.as_slice()) {
                 Err(_) => break,
                 _ => (),
@@ -37,7 +37,7 @@ fn stream_bytes_writer(chan: Receiver<Box<Vec<u8>>>, mut stream: TcpStream, _wai
 
 fn stream_msg_writer(msg_chan: Receiver<Box<Msg>>, mut stream: TcpStream, encoder: V2Encoder) {
     loop {
-        match msg_chan.recv_opt() {
+        match msg_chan.recv() {
             Ok(msg) => {
                 debug!("Sending message: {} @ {} -> {}", msg,
                        stream.socket_name(), stream.peer_name());
@@ -80,12 +80,12 @@ impl StreamEngine {
         extensions::u64_to_be_bytes(
             (self.options.read().identity_size + 1) as u64, 8, |v| signature.push_all(v));
         signature.push(0x7fu8);
-        if bytes_tx.send_opt(signature).is_err() {
+        if bytes_tx.send(signature).is_err() {
             return Err(ZmqError::new(ErrorCode::EIOERROR, "Connection closed"));
         }
 
         let (decoder, encoder) = try!(self.handshake(bytes_tx));
-        let _ = waiter_rx.recv_opt(); // wait until all outgoing handshake bytes are committed
+        let _ = waiter_rx.recv(); // wait until all outgoing handshake bytes are committed
         debug!("Handshake is done: {} -> {}", self.stream.socket_name(), self.stream.peer_name());
 
         // prepare task for sending Msg objects
@@ -98,17 +98,17 @@ impl StreamEngine {
         // Receive Msg objects
         let (tx, rx) = channel(); // TODO: replace with SyncSender
         debug!("Feeding the peer channels to the socket object.");
-        if self.chan_to_socket.send_opt(Ok(SocketMessage::OnConnected(msg_tx, rx))).is_err() {
+        if self.chan_to_socket.send(Ok(SocketMessage::OnConnected(msg_tx, rx))).is_err() {
             warn!("Socket object is gone!");
             return Ok(());
         }
         loop {
             match decoder.decode(&mut self.stream) {
-                Ok(msg) => if tx.send_opt(msg).is_err() {
+                Ok(msg) => if tx.send(msg).is_err() {
                     return Ok(());
                 },
                 Err(e) => {
-                    let _ = self.chan_to_socket.send_opt(Err(e));
+                    let _ = self.chan_to_socket.send(Err(e));
                     break;
                 }
             }

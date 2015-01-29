@@ -141,7 +141,7 @@ impl SocketBase {
                 match mapping.remove(&hid) {
                     Some((None, _)) => continue,
                     Some((Some(mut handle), index)) => {
-                        match handle.recv_opt() {
+                        match handle.recv() {
                             Ok(msg) => {
                                 unsafe {
                                     handle.remove();
@@ -189,7 +189,7 @@ impl SocketBase {
         loop {
             if !assert!(self) {
                 debug!("Condition not met, wait... peers: {}", self.peers.len());
-                match self.rx.recv_opt() {
+                match self.rx.recv() {
                     Ok(msg) => self.handle_msg(msg),
                     Err(_) => panic!(),
                 }
